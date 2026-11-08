@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Super Mario Run - Medium Mode</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 25px 10px;
+      text-align: center;
+      font-family: Arial, sans-serif;
+      background: #87CEEB;
+      color: #222;
+    }
+
+    h1 {
+      color: #E52521;
+      text-shadow: 2px 2px white;
+    }
+
+    .difficulty {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: #E6A817;
+      color: #222;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      max-width: 800px;
+      height: auto;
+      margin: 20px auto;
+      border: 4px solid white;
+      background: #87CEEB;
+      image-rendering: pixelated;
+      touch-action: manipulation;
+    }
+
+    button {
+      padding: 11px 24px;
+      border: 2px solid #222;
+      border-radius: 5px;
+      background: #E52521;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #B91C1C;
+    }
+
+    #superMarioScore {
+      font-size: 20px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>🍄 Super Mario Run 🍄</h1>
+  <p class="difficulty">HAVE FUN</p>
+  <p>Jump over the red mushrooms and beat your best score!</p>
+
+  <canvas id="superMarioCanvas" width="800" height="260"></canvas>
+
+  <p id="superMarioScore">Score: 0 | Best: 0</p>
+  <button id="restartButton">Restart Game ↻</button>
+
+  <p>Jump: SPACE / ↑ / Tap the screen</p>
+
+  <script>
+    const canvas = document.getElementById("superMarioCanvas");
+    const ctx = canvas.getContext("2d");
+    const scoreDisplay = document.getElementById("superMarioScore");
+    const restartButton = document.getElementById("restartButton");
+
+    const WIDTH = canvas.width;
+    const HEIGHT = canvas.height;
+    const GROUND_Y = 220;
+    const BRICK_WIDTH = 40;
+    const BRICK_HEIGHT = 20;
+
+    const START_SPEED = 5;
+    const MAX_SPEED = 8;
+    const SPEED_INCREASE = 0.035;
+    const GRAVITY = 0.65;
+    const JUMP_POWER = -12.5;
+
+    let superMario;
+    let warpPipes;
+    let score;
+
+    let bestScore =
+      Number(localStorage.getItem("superMarioBest")) || 0;
+
+    let gameSpeed;
+    let groundOffset;
+    let frameCount;
+    let gameOver;
+    let lastTime = 0;
+
+    function restartGame() {
+      superMario = {
+        x: 65,
+        y: GROUND_Y - 49,
+        width: 42,
+        height: 49,
+        velocityY: 0,
+        isJumping: false
+      };
+
+      warpPipes = [];
+      score = 0;
+      gameSpeed = START_SPEED;
+      groundOffset = 0;
+      frameCount = 0;
+      gameOver = false;
+      lastTime = 0;
+
+      spawnWarpPipe(WIDTH + 240);
+      updateScore();
+    }
+
+    function updateScore() {
+      scoreDisplay.textContent =
+        `Score: ${score} | Best: ${bestScore}`;
+    }
+
+    function drawSuperMario() {
+      const x = superMario.x;
+      const y = superMario.y;
+
+      ctx.fillStyle = "#713B20";
+      ctx.fillRect(x + 7, y + 8, 30, 29);
+
+      ctx.fillStyle = "#E52521";
+      ctx.fillRect(x + 8, y - 5, 28, 10);
+      ctx.fillRect(x + 3, y + 2, 39, 7);
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(x + 19, y - 3, 9, 6);
+
+      ctx.fillStyle = "#E52521";
+      ctx.font = "bold 8px Arial";
+      ctx.fillText("M", x + 20, y + 2);
+
+      ctx.fillStyle = "#FFC58A";
+      ctx.fillRect(x + 12, y + 8, 24, 19);
+      ctx.fillRect(x + 31, y + 13, 9, 8);
+      ctx.fillRect(x + 7, y + 15, 7, 8);
+
+      ctx.fillStyle = "#713B20";
+      ctx.fillRect(x + 8, y + 8, 6, 18);
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(x + 19, y + 11, 6, 8);
+      ctx.fillRect(x + 30, y + 11, 5, 8);
+
+      ctx.fillStyle = "#29234F";
+      ctx.fillRect(x + 22, y + 13, 3, 5);
+      ctx.fillRect(x + 32, y + 13, 3, 5);
+
+      ctx.fillStyle = "#F2A66D";
+      ctx.fillRect(x + 26, y + 18, 10, 7);
+
+      ctx.fillStyle = "#713B20";
+      ctx.fillRect(x + 19, y + 22, 17, 5);
+      ctx.fillRect(x + 16, y + 21, 6, 4);
+
+      ctx.fillStyle = "#E52521";
+      ctx.fillRect(x + 8, y + 29, 28, 12);
+
+      ctx.fillStyle = "#1769AA";
+      ctx.fillRect(x + 10, y + 33, 24, 12);
+      ctx.fillRect(x + 13, y + 29, 6, 9);
+      ctx.fillRect(x + 26, y + 29, 6, 9);
+
+      ctx.fillStyle = "#FFD447";
+      ctx.fillRect(x + 15, y + 32, 3, 3);
+      ctx.fillRect(x + 27, y + 32, 3, 3);
+
+      ctx.fillStyle = "#E52521";
+      ctx.fillRect(x + 2, y + 30, 8, 12);
+      ctx.fillRect(x + 35, y + 30, 7, 12);
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(x + 1, y + 38, 9, 7);
+      ctx.fillRect(x + 35, y + 38, 8, 7);
+
+      ctx.fillStyle = "#1769AA";
+      ctx.fillRect(x + 11, y + 42, 9, 5);
+      ctx.fillRect(x + 25, y + 42, 9, 5);
+
+      ctx.fillStyle = "#713B20";
+      ctx.fillRect(x + 7, y + 44, 14, 5);
+      ctx.fillRect(x + 23, y + 44, 14, 5);
+    }
+
+    function spawnWarpPipe(x) {
+      warpPipes.push({
+        x: x,
+        width: 44,
+        height: 44,
+        scored: false
+      });
+    }
+
+    function drawWarpPipe(mushroom) {
+      const x = mushroom.x;
+      const y = GROUND_Y - mushroom.height;
+      const w = mushroom.width;
+
+      ctx.fillStyle = "#E52521";
+      ctx.beginPath();
+      ctx.arc(
+        x + w / 2,
+        y + 18,
+        21,
+        Math.PI,
+        0
+      );
+      ctx.lineTo(x + w - 1, y + 21);
+      ctx.quadraticCurveTo(
+        x + w / 2,
+        y + 32,
+        x + 1,
+        y + 21
+      );
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = "#9F1717";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      ctx.fillStyle = "#FFFFFF";
+
+      ctx.beginPath();
+      ctx.arc(x + 13, y + 12, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(x + 30, y + 11, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(x + 22, y + 23, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#FFF0C2";
+      ctx.fillRect(x + 12, y + 23, 20, 18);
+
+      ctx.strokeStyle = "#C9A66B";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 12, y + 23, 20, 18);
+
+      ctx.fillStyle = "#222222";
+      ctx.fillRect(x + 17, y + 30, 3, 5);
+      ctx.fillRect(x + 25, y + 30, 3, 5);
+    }
+
+    function drawBrickGround() {
+      ctx.fillStyle = "#9B542F";
+      ctx.fillRect(0, GROUND_Y, WIDTH, HEIGHT - GROUND_Y);
+
+      for (let row = 0; row < 2; row++) {
+        const brickY = GROUND_Y + row * BRICK_HEIGHT;
+        const rowOffset =
+          row % 2 === 0 ? 0 : BRICK_WIDTH / 2;
+
+        for (let col = -2; col < 24; col++) {
+          const brickX =
+            col * BRICK_WIDTH + rowOffset - groundOffset;
+
+          ctx.fillStyle =
+            row % 2 === 0 ? "#B86F43" : "#A65D37";
+
+          ctx.fillRect(
+            brickX,
+            brickY,
+            BRICK_WIDTH,
+            BRICK_HEIGHT
+          );
+
+          ctx.fillStyle = "#D18A58";
+          ctx.fillRect(
+            brickX + 1,
+            brickY + 1,
+            BRICK_WIDTH - 2,
+            3
+          );
+
+          ctx.fillStyle = "#633820";
+          ctx.fillRect(
+            brickX,
+            brickY + BRICK_HEIGHT - 2,
+            BRICK_WIDTH,
+            2
+          );
+
+          ctx.fillRect(
+            brickX + BRICK_WIDTH - 2,
+            brickY,
+            2,
+            BRICK_HEIGHT
+          );
+        }
+      }
+
+      ctx.fillStyle = "#633820";
+      ctx.fillRect(0, GROUND_Y, WIDTH, 3);
+    }
+
+    function checkCollision(mushroom) {
+      const marioLeft = superMario.x + 5;
+      const marioRight =
+        superMario.x + superMario.width - 5;
+      const marioTop = superMario.y + 5;
+      const marioBottom =
+        superMario.y + superMario.height;
+
+      const mushroomLeft = mushroom.x + 3;
+      const mushroomRight =
+        mushroom.x + mushroom.width - 3;
+      const mushroomTop =
+        GROUND_Y - mushroom.height + 3;
+
+      return (
+        marioRight > mushroomLeft &&
+        marioLeft < mushroomRight &&
+        marioBottom > mushroomTop &&
+        marioTop < GROUND_Y
+      );
+    }
+
+    function updateGame(delta) {
+      if (gameOver) return;
+
+      const step = Math.min(delta / 16.67, 2);
+
+      frameCount += step;
+
+      groundOffset =
+        (groundOffset + gameSpeed * step) % BRICK_WIDTH;
+
+      // Update Mario's jump and falling movement.
+      superMario.velocityY += GRAVITY * step;
+      superMario.y += superMario.velocityY * step;
+
+      const floorY = GROUND_Y - superMario.height;
+
+      if (superMario.y >= floorY) {
+        superMario.y = floorY;
+        superMario.velocityY = 0;
+        superMario.isJumping = false;
+      }
+
+      // Move mushrooms toward Mario.
+      for (const mushroom of warpPipes) {
+        mushroom.x -= gameSpeed * step;
+      }
+
+      // Remove mushrooms that have left the screen.
+      warpPipes = warpPipes.filter(
+        mushroom => mushroom.x + mushroom.width + 10 > 0
+      );
+
+      // Spawn the next mushroom.
+      if (
+        warpPipes.length === 0 ||
+        warpPipes[warpPipes.length - 1].x < WIDTH - 390
+      ) {
+        const lastMushroom = warpPipes[warpPipes.length - 1];
+
+        if (!lastMushroom || lastMushroom.x < WIDTH - 430) {
+          spawnWarpPipe(
+            WIDTH + 100 + Math.random() * 120
+          );
+        }
+      }
+
+      // Check for collisions with mushrooms.
+      for (const mushroom of warpPipes) {
+        if (checkCollision(mushroom)) {
+          gameOver = true;
+
+          if (score > bestScore) {
+            bestScore = score;
+            localStorage.setItem("superMarioBest", bestScore);
+          }
+
+          updateScore();
+          break;
+        }
+      }
+
+      // ADD 1 POINT FOR EACH MUSHROOM SUCCESSFULLY PASSED.
+      if (!gameOver) {
+        for (const mushroom of warpPipes) {
+          if (
+            !mushroom.scored &&
+            mushroom.x + mushroom.width < superMario.x
+          ) {
+            mushroom.scored = true;
+            score += 1;
+
+            // Increase game speed as the score grows.
+            gameSpeed = Math.min(
+              START_SPEED + score * SPEED_INCREASE,
+              MAX_SPEED
+            );
+
+            updateScore();
+          }
+        }
+      }
+    }
+
+    function drawGame() {
+      ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+      ctx.fillStyle = "#87CEEB";
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+      drawCloud(140, 48);
+      drawCloud(450, 75);
+      drawCloud(690, 40);
+
+      drawBrickGround();
+
+      for (const mushroom of warpPipes) {
+        drawWarpPipe(mushroom);
+      }
+
+      drawSuperMario();
+
+      if (gameOver) {
+        ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+        ctx.fillRect(0, 0, WIDTH, GROUND_Y);
+
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#E52521";
+        ctx.font = "bold 34px Arial";
+        ctx.fillText("GAME OVER!", WIDTH / 2, 100);
+
+        ctx.fillStyle = "#222";
+        ctx.font = "18px Arial";
+        ctx.fillText(
+          "Press SPACE or click Restart",
+          WIDTH / 2,
+          135
+        );
+
+        ctx.textAlign = "left";
+      }
+    }
+
+    function drawCloud(x, y) {
+      ctx.fillStyle = "#FFFFFF";
+      ctx.beginPath();
+      ctx.arc(x, y, 15, 0, Math.PI * 2);
+      ctx.arc(x + 18, y - 8, 20, 0, Math.PI * 2);
+      ctx.arc(x + 39, y, 15, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function jumpSuperMario() {
+      if (gameOver) {
+        restartGame();
+        return;
+      }
+
+      if (!superMario.isJumping) {
+        superMario.velocityY = JUMP_POWER;
+        superMario.isJumping = true;
+      }
+    }
+
+    document.addEventListener("keydown", function(event) {
+      if (
+        event.code === "Space" ||
+        event.code === "ArrowUp"
+      ) {
+        event.preventDefault();
+
+        if (!event.repeat) {
+          jumpSuperMario();
+        }
+      }
+    });
+
+    canvas.addEventListener("pointerdown", function() {
+      jumpSuperMario();
+    });
+
+    restartButton.addEventListener("click", restartGame);
+
+    function gameLoop(timestamp) {
+      const delta = lastTime
+        ? timestamp - lastTime
+        : 16.67;
+
+      lastTime = timestamp;
+
+      updateGame(delta);
+      drawGame();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    restartGame();
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
